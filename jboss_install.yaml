@@ -1,0 +1,62 @@
+--- # Ansible playbook to provisioning jboss or wildfly
+- hosts: jboss
+  remote_user: ansible
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks:
+  - name: Install Java 1.8 and some basic dependencies
+    apt: pkg={{item}} state=present
+    with_items:
+     - wget
+     - openjdk-8-jdk
+
+# Install WildFly
+  - name: Copy WildFly from ./
+    # From my computer
+    #copy: src=wildfly-10.1.0.Final.tar.gz dest=/tmp/wildfly-10.1.0.Final.tar.gz 
+    # From web site
+    get_url: url=http://download.jboss.org/wildfly/10.1.0.Final/wildfly-10.1.0.Final.tar.gz dest=/opt/wildfly-10.1.0.Final.tar.gz
+  
+  - name: Extract archive
+    command: chdir=/opt /bin/tar xvzf wildfly-10.1.0.Final.tar.gz -C /opt
+  
+#  - name: Rename install directory
+#    command: chdir=/opt /usr/bin/unlink wildfly
+
+  - name: Rename install directory
+    file: src=/opt/wildfly-10.1.0.Final dest=/opt/wildfly state=link
+
+# Create a wildfly user  
+  - name: Add group "wildfly"
+    group: name=wildfly
+
+  - name: Add user "wildfly"
+    user: name=wildfly group=wildfly home=/opt/wildfly shell=/sbin/nologin
+
+  - name: Change ownership of WildFly installation
+    file: path=/opt/wildfly/ owner=wildfly group=wildfly state=directory recurse=yes
+
+#- name: Copying standalone.xml configuration file
+#  template: src=standalone.xml dest=/usr/share/jboss-as/standalone/configuration/
+#  notify: restart jboss
+
+# Configure systemd  
+  - name: Creates directory
+    file: path=/etc/wildfly state=directory
+
+  - name: Copy wildfly.conf to /etc/wildfly
+    command: chdir=/opt /bin/cp wildfly/docs/contrib/scripts/systemd/wildfly.conf /etc/wildfly/
+
+  - name: Copy wildfly.service to /etc/systemd/system/
+    command: chdir=/opt /bin/cp wildfly/docs/contrib/scripts/systemd/wildfly.service /etc/systemd/system/
+
+  - name: Fix permission launch.sh
+    command: chdir=/opt /bin/cp wildfly/docs/contrib/scripts/systemd/launch.sh wildfly/bin/
+
+  - name: Change ownership of WildFly installation
+    file: path=/opt/wildfly/docs/contrib/scripts/systemd/launch.sh owner=wildfly group=wildfly mode=0755
+
+  - name: Enable WildFly to be started at boot
+    service: name=wildfly enabled=yes state=started

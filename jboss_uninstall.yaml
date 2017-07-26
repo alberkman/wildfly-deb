@@ -1,0 +1,34 @@
+--- # Ansible playbook to provisioning jboss or wildfly
+- hosts: jboss
+  remote_user: ansible
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: no
+  tasks:
+  # Stop and disable wildfly service
+  - name: Enable WildFly to be started at boot
+    service: name=wildfly enabled=no state=stopped
+
+  # Delete /etc/wildfly and /etc/systemd/system/wildfly.service
+  - name: Delete wildfly directory from /etc
+    file: path=/etc/wildfly state=absent
+
+  - name: Delete wildfly files from /etc/systemd/system/
+    file: path=/etc/systemd/system/wildfly.service state=absent
+
+  # Unlink wildfly
+  - name: Unlink wildfly directory
+    file: path=/opt/wildfly state=absent
+
+  # Delete a wildfly user
+  - name: Delete "wildfly" user
+    user: name=wildfly state=absent remove=yes
+
+  # Delete /opt/wildlfy*
+  - name: Delete wildfly directory
+    file: path=/opt/wildfly-10.1.0.Final state=absent
+
+  # Delete a wildfly sources
+  - name: Delete wildfly sources
+    file: path=/opt/wildfly-10.1.0.Final.tar.gz state=absent
